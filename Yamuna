@@ -1,0 +1,187 @@
+# Install required libraries in Google Colab
+!pip install pandas numpy matplotlib seaborn scikit-learn streamlit
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+import streamlit as st
+import pickle
+
+# 1. Upload the dataset (Not applicable since we're creating a synthetic dataset)
+# Instead, generate a synthetic dataset
+np.random.seed(42)
+n_samples = 1000
+
+data = pd.DataFrame({
+    'Weather': np.random.choice(['Clear', 'Rainy', 'Foggy', 'Snowy'], n_samples),
+    'Road_Condition': np.random.choice(['Dry', 'Wet', 'Icy'], n_samples),
+    'Speed': np.random.randint(30, 120, n_samples),
+    'Time_of_Day': np.random.choice(['Morning', 'Afternoon', 'Evening', 'Night'], n_samples),
+    'Accident_Severity': np.random.choice(['Low', 'Medium', 'High'], n_samples, p=[0.5, 0.3, 0.2])
+})
+
+# 2. Load the dataset (Already created above)
+# 3. Read the dataset (Already in DataFrame)
+
+# 4. Data exploration (Covered in steps 5–11)
+
+# 5. Display the first few rows
+print("First few rows of the dataset:")
+print(data.head())
+
+# 6. Shape the dataset
+print("\nShape of the dataset:", data.shape)
+
+# 7. Column names
+print("\nColumn names:", data.columns.tolist())
+
+# 8. Data types and non-null values
+print("\nData types and non-null counts:")
+print(data.info())
+
+# 9. Summary statistics for numeric features
+print("\nSummary statistics for numeric features:")
+print(data.describe())
+
+# 10. Check for missing values
+print("\nMissing values:")
+print(data.isnull().sum())
+
+# 11. Check for duplicates
+print("\nNumber of duplicate rows:", data.duplicated().sum())
+# Remove duplicates if any
+data = data.drop_duplicates()
+
+# 12. Visualize a few features
+# Count plot for Weather
+plt.figure(figsize=(10, 6))
+sns.countplot(x='Weather', data=data)
+plt.title('Distribution of Weather Conditions')
+plt.xticks(rotation=45)
+plt.show()
+
+# Histogram for Speed
+plt.figure(figsize=(10, 6))
+sns.histplot(data['Speed'], bins=20, kde=True)
+plt.title('Distribution of Speed')
+plt.show()
+
+# 13. Distribution for target variable (Accident_Severity)
+plt.figure(figsize=(10, 6))
+sns.countplot(x='Accident_Severity', data=data)
+plt.title('Distribution of Accident Severity')
+plt.show()
+
+# 14. Identify the targets and features
+target = 'Accident_Severity'
+features = data.columns.drop(target)
+X = data[features]
+y = data[target]
+
+# 15 & 16. Identify and convert categorical columns to numerical
+categorical_cols = X.select_dtypes(include=['object']).columns.tolist()
+numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
+print("\nCategorical columns:", categorical_cols)
+print("Numerical columns:", numerical_cols)
+
+# 17. One-hot encoding for categorical columns
+# 18. Feature scaling for numerical columns
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', StandardScaler(), numerical_cols),
+        ('cat', OneHotEncoder(drop='first', sparse=False), categorical_cols)
+    ])
+
+# 19 & 20. Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+print("\nTraining set shape:", X_train.shape)
+print("Testing set shape:", X_test.shape)
+
+# 21. Building the model pipeline
+model = Pipeline(steps=[
+    ('preprocessor', preprocessor),
+    ('classifier', RandomForestClassifier(n_estimators=100, random_state=42))
+])
+
+# 22. Train the model
+model.fit(X_train, y_train)
+print("\nModel training completed.")
+
+# 23. Predict on test data
+y_pred = model.predict(X_test)
+
+# 24. Evaluation
+accuracy = accuracy_score(y_test, y_pred)
+print("\nModel Accuracy:", accuracy)
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred))
+print("\nConfusion Matrix:")
+cm = confusion_matrix(y_test, y_pred)
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+plt.title('Confusion Matrix')
+plt.show()
+
+# 25. Make prediction from new input
+def predict_accident_severity(input_data):
+    input_df = pd.DataFrame([input_data])
+    prediction = model.predict(input_df)
+    return prediction[0]
+
+# Example new input
+new_input = {
+    'Weather': 'Rainy',
+    'Road_Condition': 'Wet',
+    'Speed': 60,
+    'Time_of_Day': 'Night'
+}
+print("\nPrediction for new input:", predict_accident_severity(new_input))
+
+# 26. Deployment: Building an iterative app with Streamlit
+# Save the model
+with open('model.pkl', 'wb') as file:
+    pickle.dump(model, file)
+
+# Streamlit app code (to be run separately)
+streamlit_code = """
+import streamlit as st
+import pandas as pd
+import pickle
+
+# Load the trained model
+with open('model.pkl', 'rb') as file:
+    model = pickle.load(file)
+
+st.title('Road Accident Severity Prediction')
+
+# Input fields
+weather = st.selectbox('Weather', ['Clear', 'Rainy', 'Foggy', 'Snowy'])
+road_condition = st.selectbox('Road Condition', ['Dry', 'Wet', 'Icy'])
+speed = st.slider('Speed (km/h)', 30, 120, 60)
+time_of_day = st.selectbox('Time of Day', ['Morning', 'Afternoon', 'Evening', 'Night'])
+
+# Prediction button
+if st.button('Predict'):
+    input_data = {
+        'Weather': weather,
+        'Road_Condition': road_condition,
+        'Speed': speed,
+        'Time_of_Day': time_of_day
+    }
+    input_df = pd.DataFrame([input_data])
+    prediction = model.predict(input_df)
+    st.success(f'Predicted Accident Severity: {prediction[0]}')
+"""
+
+# Instructions for Streamlit deployment
+print("\nTo deploy the Streamlit app:")
+print("1. Save the Streamlit code above as 'app.py'.")
+print("2. Ensure 'model.pkl' is in the same directory.")
+print("3. Install Streamlit: pip install streamlit")
+print("4. Run: streamlit run app.py (use a local environment or Streamlit Cloud)")
